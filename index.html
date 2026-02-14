@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dice Master Pro</title>
+    <title>Rollplaying: d6 Dice Pool Calculator</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root { --primary: #6366f1; --secondary: #f97316; --bg: #f1f5f9; --card: #ffffff; }
@@ -28,10 +28,16 @@
         .step-value { font-size: 1rem; font-weight: 700; flex: 1; text-align: center; }
 
         .chart-wrapper { height: 180px; margin-bottom: 15px; }
-        .table-container { max-height: 220px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 12px; }
+        .table-container { max-height: 180px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 12px; margin-bottom: 15px; }
         table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
         th { background: #f8fafc; padding: 8px; border-bottom: 1px solid #e2e8f0; position: sticky; top: 0; z-index: 1; }
-        td { padding: 8px; border-bottom: 1px solid #f1f5f9; text-align: center; }
+        td { padding: 8px; border-bottom: 1px solid #f1f5f9; text-align: center; cursor: pointer; user-select: none; }
+        tr.selected { background: #eef2ff; }
+
+        .compare-box { background: #f8fafc; border: 2px dashed #e2e8f0; border-radius: 12px; padding: 12px; text-align: center; }
+        .compare-title { font-size: 0.65rem; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 8px; }
+        .compare-grid { display: flex; align-items: center; justify-content: space-around; font-weight: 700; font-size: 0.9rem; min-height: 24px; }
+        .diff-tag { background: var(--secondary); color: white; padding: 2px 8px; border-radius: 20px; font-size: 0.75rem; }
         .high { color: #16a34a; font-weight: 700; }
         .low { color: #dc2626; }
     </style>
@@ -40,8 +46,8 @@
 
 <div class="app-container">
     <div class="tabs">
-        <button class="tab active" onclick="setTab('single')">Single Pool</button>
-        <button class="tab" onclick="setTab('range')">Pool Range</button>
+        <button class="tab active" id="tabSingle" onclick="setTab('single')">Single Pool</button>
+        <button class="tab" id="tabRange" onclick="setTab('range')">Pool Range</button>
     </div>
 
     <div class="mode-toggle">
@@ -79,6 +85,13 @@
             <tbody id="tableBody"></tbody>
         </table>
     </div>
+
+    <div class="compare-box">
+        <div class="compare-title">Compare Results (Tap rows)</div>
+        <div class="compare-grid" id="compareDisplay">
+            <span style="color:#94a3b8; font-weight:normal; font-size:0.75rem">Tap two rows to see the difference</span>
+        </div>
+    </div>
 </div>
 
 <script>
@@ -87,6 +100,7 @@
     let dieTarget = 5; 
     let secondaryVal = 5; 
     let myChart;
+    let selectedRows = [];
 
     function combinations(n, k) {
         if (k < 0 || k > n) return 0;
@@ -97,14 +111,15 @@
 
     function setTab(tab) {
         currentTab = tab;
-        document.querySelectorAll('.tab').forEach((t, i) => t.classList.toggle('active', (i === 0 && tab === 'single') || (i === 1 && tab === 'range')));
+        selectedRows = [];
+        document.querySelectorAll('.tab').forEach((t) => t.classList.toggle('active', t.innerText.toLowerCase().includes(tab)));
         document.getElementById('secondaryLabel').innerText = tab === 'single' ? 'Dice in Pool' : 'Hits Needed';
         calculate();
     }
 
     function setMode(mode) {
         currentMode = mode;
-        // Clamp values for consistency when switching modes
+        selectedRows = [];
         if (mode === 'over') {
             dieTarget = Math.max(2, dieTarget);
         } else {
@@ -123,10 +138,24 @@
         } else {
             secondaryVal = Math.min(10, Math.max(1, secondaryVal + change));
         }
+        selectedRows = [];
         calculate();
     }
 
-    function calculate() {
+    function toggleRowSelection(id, prob) {
+        const index = selectedRows.findIndex(r => r.id === id);
+        if (index > -1) {
+            selectedRows.splice(index, 1);
+        } else {
+            if (selectedRows.length >= 2) selectedRows.shift();
+            selectedRows.push({id, prob});
+        }
+        calculate(false);
+    }
+
+    function calculate(resetSelections = true) {
+        if (resetSelections === true) selectedRows = [];
+        
         const p = currentMode === 'over' ? (7 - dieTarget) / 6 : dieTarget / 6;
         const labels = [], exactData = [], cumulativeData = [];
         const tbody = document.getElementById('tableBody');
@@ -148,7 +177,11 @@
                 const e = (exactProbs[k] * 100).toFixed(1);
                 const c = (exactProbs.slice(k).reduce((a, b) => a + b, 0) * 100).toFixed(1);
                 exactData.push(e); cumulativeData.push(c);
-                tbody.insertAdjacentHTML('beforeend', `<tr><td>${k}</td><td>${e}%</td><td>${c}%</td></tr>`);
+                const isSelected = selectedRows.some(r => r.id === k);
+                tbody.insertAdjacentHTML('beforeend', `
+                    <tr class="${isSelected ? 'selected' : ''}" onclick="toggleRowSelection(${k}, ${c})">
+                        <td>${k}</td><td>${e}%</td><td>${c}%</td>
+                    </tr>`);
             }
             renderChart(labels, [
                 {type:'bar', data:exactData, color:'rgba(99, 102, 241, 0.4)', label: 'Exactly'},
@@ -164,10 +197,26 @@
                 }
                 const pct = (probSum * 100).toFixed(1);
                 cumulativeData.push(pct);
-                tbody.insertAdjacentHTML('beforeend', `<tr><td>${n}d</td><td class="${pct > 70 ? 'high' : pct < 30 ? 'low' : ''}">${pct}%</td></tr>`);
+                const isSelected = selectedRows.some(r => r.id === n);
+                tbody.insertAdjacentHTML('beforeend', `
+                    <tr class="${isSelected ? 'selected' : ''}" onclick="toggleRowSelection(${n}, ${pct})">
+                        <td>${n}d</td><td class="${pct > 70 ? 'high' : pct < 30 ? 'low' : ''}">${pct}%</td>
+                    </tr>`);
             }
             renderChart(labels, [{type:'line', data:cumulativeData, color:'#6366f1', label: 'Success Chance'}]);
         }
+        updateCompareDisplay();
+    }
+
+    function updateCompareDisplay() {
+        const display = document.getElementById('compareDisplay');
+        if (selectedRows.length < 2) {
+            display.innerHTML = `<span style="color:#94a3b8; font-weight:normal; font-size:0.75rem">Tap two rows to see the difference</span>`;
+            return;
+        }
+        const r1 = selectedRows[0], r2 = selectedRows[1];
+        const diff = Math.abs(r1.prob - r2.prob).toFixed(1);
+        display.innerHTML = `<span>${r1.prob}%</span> <span style="color:#94a3b8">vs</span> <span>${r2.prob}%</span> <span class="diff-tag">Δ ${diff}%</span>`;
     }
 
     function renderChart(labels, datasets) {
