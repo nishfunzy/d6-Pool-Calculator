@@ -1,247 +1,589 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rollplaying: d6 Dice Pool Calculator</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <style>
-        :root { --primary: #6366f1; --secondary: #f97316; --bg: #f1f5f9; --card: #ffffff; }
-        body { font-family: system-ui, sans-serif; margin: 0; padding: 12px; background: var(--bg); color: #1e293b; }
-        .app-container { background: var(--card); width: 100%; max-width: 420px; padding: 18px; border-radius: 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); margin: auto; box-sizing: border-box; }
-        
-        .tabs { display: flex; background: #f1f5f9; padding: 4px; border-radius: 12px; margin-bottom: 15px; }
-        .tab { flex: 1; padding: 10px; border: none; border-radius: 10px; cursor: pointer; font-weight: 600; font-size: 0.8rem; background: transparent; color: #64748b; }
-        .tab.active { background: white; color: var(--primary); box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+import { useState } from "react";
 
-        .mode-toggle { display: flex; align-items: center; justify-content: center; gap: 6px; margin-bottom: 15px; }
-        .toggle-btn { flex: 1; padding: 8px; border: 2px solid #e2e8f0; border-radius: 10px; cursor: pointer; background: white; font-size: 0.7rem; font-weight: bold; color: #64748b; }
-        .toggle-btn.active { border-color: var(--primary); color: var(--primary); background: #eef2ff; }
+const DICE = [
+  { sides: 4, label: "d4" },
+  { sides: 6, label: "d6" },
+  { sides: 8, label: "d8" },
+  { sides: 10, label: "d10" },
+  { sides: 12, label: "d12" },
+  { sides: 20, label: "d20" },
+];
 
-        .controls-row { display: flex; gap: 10px; margin-bottom: 15px; }
-        .input-group { flex: 1; min-width: 0; }
-        
-        label { font-size: 0.65rem; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; display: block; white-space: nowrap; }
-        
-        .stepper { display: flex; align-items: center; background: #f8fafc; border: 2px solid #e2e8f0; border-radius: 10px; padding: 2px; }
-        .step-btn { width: 34px; height: 34px; border-radius: 6px; border: none; background: white; color: var(--primary); font-size: 1.1rem; font-weight: bold; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
-        .step-value { font-size: 1rem; font-weight: 700; flex: 1; text-align: center; }
+const binom = (n, k) => {
+  if (k < 0 || k > n) return 0;
+  if (k === 0 || k === n) return 1;
+  let r = 1;
+  for (let i = 0; i < k; i++) r = (r * (n - i)) / (i + 1);
+  return r;
+};
 
-        .chart-wrapper { height: 180px; margin-bottom: 15px; }
-        .table-container { max-height: 180px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 12px; margin-bottom: 15px; }
-        table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
-        th { background: #f8fafc; padding: 8px; border-bottom: 1px solid #e2e8f0; position: sticky; top: 0; z-index: 1; }
-        td { padding: 8px; border-bottom: 1px solid #f1f5f9; text-align: center; cursor: pointer; user-select: none; }
-        tr.selected { background: #eef2ff; }
+const exactProb = (n, k, p) =>
+  binom(n, k) * Math.pow(p, k) * Math.pow(1 - p, n - k);
 
-        .compare-box { background: #f8fafc; border: 2px dashed #e2e8f0; border-radius: 12px; padding: 12px; text-align: center; }
-        .compare-title { font-size: 0.65rem; font-weight: 800; color: #64748b; text-transform: uppercase; margin-bottom: 8px; }
-        .compare-grid { display: flex; align-items: center; justify-content: space-around; font-weight: 700; font-size: 0.9rem; min-height: 24px; }
-        .diff-tag { background: var(--secondary); color: white; padding: 2px 8px; border-radius: 20px; font-size: 0.75rem; }
-        .high { color: #16a34a; font-weight: 700; }
-        .low { color: #dc2626; }
-    </style>
-</head>
-<body>
+const atLeastProb = (n, threshold, p) => {
+  let prob = 0;
+  for (let k = threshold; k <= n; k++) prob += exactProb(n, k, p);
+  return prob;
+};
 
-<div class="app-container">
-    <div class="tabs">
-        <button class="tab active" id="tabSingle" onclick="setTab('single')">Single Pool</button>
-        <button class="tab" id="tabRange" onclick="setTab('range')">Pool Range</button>
-    </div>
+const atMostProb = (n, threshold, p) => {
+  let prob = 0;
+  for (let k = 0; k <= threshold; k++) prob += exactProb(n, k, p);
+  return prob;
+};
 
-    <div class="mode-toggle">
-        <button id="modeOver" class="toggle-btn active" onclick="setMode('over')">Roll Over (X+)</button>
-        <button id="modeUnder" class="toggle-btn" onclick="setMode('under')">Roll Under (X-)</button>
-    </div>
+const fmt = (p) => (p * 100).toFixed(1) + "%";
 
-    <div class="controls-row">
-        <div class="input-group">
-            <label>Success on Die</label>
-            <div class="stepper">
-                <button class="step-btn" onclick="updateVal('dieTarget', -1)">−</button>
-                <div class="step-value" id="dieTargetVal">5+</div>
-                <button class="step-btn" onclick="updateVal('dieTarget', 1)">+</button>
+export default function App() {
+  const [diceCount, setDiceCount] = useState(6);
+  const [threshold, setThreshold] = useState(3);
+  const [dieType, setDieType] = useState(6);
+  const [mode, setMode] = useState("gte"); // "gte" | "lte"
+  const [view, setView] = useState("distribution");
+
+  const p = 1 / dieType;
+  const result =
+    mode === "gte"
+      ? atLeastProb(diceCount, threshold, p)
+      : atMostProb(diceCount, threshold, p);
+
+  const distribution = Array.from({ length: diceCount + 1 }, (_, k) => ({
+    k,
+    prob: exactProb(diceCount, k, p),
+  }));
+  const maxProb = Math.max(...distribution.map((d) => d.prob));
+
+  const sweep = Array.from({ length: 20 }, (_, i) => {
+    const n = i + 1;
+    const sp =
+      mode === "gte"
+        ? threshold <= n
+          ? atLeastProb(n, threshold, p)
+          : 0
+        : atMostProb(n, threshold, p);
+    return { n, p: sp };
+  });
+
+  const dieName = DICE.find((d) => d.sides === dieType)?.label;
+  const modeSymbol = mode === "gte" ? "≥" : "≤";
+
+  return (
+    <div
+      style={{
+        minHeight: "100dvh",
+        background: "#f7f5f2",
+        color: "#1a1a1a",
+        fontFamily: "'DM Mono', 'Courier New', monospace",
+        maxWidth: 480,
+        margin: "0 auto",
+        display: "flex",
+        flexDirection: "column",
+      }}
+    >
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Fraunces:opsz,wght@9..144,300;9..144,600&display=swap');
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        button:active { opacity: 0.6; }
+      `}</style>
+
+      {/* Header */}
+      <header
+        style={{ padding: "32px 28px 20px", borderBottom: "1px solid #e0dcd6" }}
+      >
+        <p
+          style={{
+            margin: "0 0 4px",
+            fontSize: 11,
+            letterSpacing: "0.2em",
+            textTransform: "uppercase",
+            color: "#999",
+          }}
+        >
+          Dice Pool Probability
+        </p>
+        <h1
+          style={{
+            margin: 0,
+            fontFamily: "'Fraunces', serif",
+            fontSize: 38,
+            fontWeight: 300,
+            color: "#1a1a1a",
+            letterSpacing: "-0.02em",
+          }}
+        >
+          Rollplaying
+        </h1>
+      </header>
+
+      {/* Dice type selector */}
+      <div style={{ padding: "20px 28px 0" }}>
+        <p
+          style={{
+            margin: "0 0 10px",
+            fontSize: 10,
+            letterSpacing: "0.18em",
+            textTransform: "uppercase",
+            color: "#aaa",
+          }}
+        >
+          Die Type
+        </p>
+        <div style={{ display: "flex", gap: 8 }}>
+          {DICE.map(({ sides, label }) => (
+            <button
+              key={sides}
+              onClick={() => setDieType(sides)}
+              style={{
+                flex: 1,
+                padding: "8px 0",
+                border: "none",
+                cursor: "pointer",
+                borderRadius: 6,
+                fontSize: 12,
+                fontFamily: "inherit",
+                fontWeight: dieType === sides ? 500 : 400,
+                background: dieType === sides ? "#1a1a1a" : "#ece9e4",
+                color: dieType === sides ? "#f7f5f2" : "#666",
+                transition: "all 0.15s",
+                letterSpacing: "0.04em",
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Controls */}
+      <div
+        style={{
+          padding: "20px 28px",
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: 16,
+        }}
+      >
+        <Control
+          label="Dice"
+          value={diceCount}
+          min={1}
+          max={20}
+          onChange={(d) => {
+            const next = Math.min(20, Math.max(1, diceCount + d));
+            setDiceCount(next);
+            if (threshold > next) setThreshold(next);
+          }}
+        />
+        <Control
+          label={`Target ${modeSymbol}`}
+          value={threshold}
+          min={0}
+          max={diceCount}
+          onChange={(d) =>
+            setThreshold((t) => Math.min(diceCount, Math.max(0, t + d)))
+          }
+        />
+      </div>
+
+      {/* Mode toggle + Result */}
+      <div style={{ padding: "0 28px 24px" }}>
+        {/* GTE / LTE toggle */}
+        <div
+          style={{
+            display: "flex",
+            marginBottom: 10,
+            border: "1px solid #e0dcd6",
+            borderRadius: 8,
+            overflow: "hidden",
+          }}
+        >
+          {[
+            { val: "gte", label: "≥ At Least" },
+            { val: "lte", label: "≤ At Most" },
+          ].map(({ val, label }) => (
+            <button
+              key={val}
+              onClick={() => setMode(val)}
+              style={{
+                flex: 1,
+                padding: "9px 0",
+                border: "none",
+                cursor: "pointer",
+                fontFamily: "inherit",
+                fontSize: 12,
+                letterSpacing: "0.08em",
+                transition: "all 0.15s",
+                background: mode === val ? "#1a1a1a" : "transparent",
+                color: mode === val ? "#f7f5f2" : "#aaa",
+                fontWeight: mode === val ? 500 : 400,
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {/* Result card with progress bar as background */}
+        <div
+          style={{
+            borderRadius: 12,
+            padding: "28px 24px",
+            display: "flex",
+            alignItems: "flex-end",
+            justifyContent: "space-between",
+            position: "relative",
+            overflow: "hidden",
+            background: "#1a1a1a",
+            minHeight: 100,
+          }}
+        >
+          {/* Animated fill */}
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              width: `${result * 100}%`,
+              background: "#2e2e2e",
+              transition: "width 0.5s cubic-bezier(0.4,0,0.2,1)",
+              borderRadius: 0,
+            }}
+          />
+          {/* Subtle divider line at fill edge */}
+          <div
+            style={{
+              position: "absolute",
+              top: 0,
+              bottom: 0,
+              left: `${result * 100}%`,
+              width: result > 0 && result < 1 ? 1 : 0,
+              background: "#3e3e3e",
+              transition: "left 0.5s cubic-bezier(0.4,0,0.2,1)",
+            }}
+          />
+
+          {/* Content */}
+          <div style={{ position: "relative", zIndex: 1 }}>
+            <p
+              style={{
+                margin: "0 0 4px",
+                fontSize: 11,
+                color: "#666",
+                letterSpacing: "0.15em",
+                textTransform: "uppercase",
+              }}
+            >
+              P({modeSymbol}
+              {threshold} on {diceCount}
+              {dieName})
+            </p>
+            <p
+              style={{
+                margin: 0,
+                fontFamily: "'Fraunces', serif",
+                fontSize: 52,
+                fontWeight: 600,
+                color: "#f7f5f2",
+                letterSpacing: "-0.03em",
+                lineHeight: 1,
+              }}
+            >
+              {fmt(result)}
+            </p>
+          </div>
+          <div style={{ textAlign: "right", position: "relative", zIndex: 1 }}>
+            <p
+              style={{
+                margin: "0 0 2px",
+                fontSize: 10,
+                color: "#555",
+                letterSpacing: "0.12em",
+                textTransform: "uppercase",
+              }}
+            >
+              1 in
+            </p>
+            <p
+              style={{
+                margin: 0,
+                fontSize: 22,
+                color: "#f7f5f2",
+                fontFamily: "'Fraunces', serif",
+                fontWeight: 300,
+              }}
+            >
+              {result > 0 ? (1 / result).toFixed(1) : "∞"}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div
+        style={{
+          padding: "0 28px 12px",
+          display: "flex",
+          gap: 0,
+          borderBottom: "1px solid #e0dcd6",
+        }}
+      >
+        {["distribution", "sweep"].map((v) => (
+          <button
+            key={v}
+            onClick={() => setView(v)}
+            style={{
+              padding: "6px 16px 8px",
+              border: "none",
+              cursor: "pointer",
+              background: "transparent",
+              fontFamily: "inherit",
+              fontSize: 11,
+              letterSpacing: "0.15em",
+              textTransform: "uppercase",
+              color: view === v ? "#1a1a1a" : "#bbb",
+              fontWeight: view === v ? 500 : 400,
+              borderBottom:
+                view === v ? "2px solid #1a1a1a" : "2px solid transparent",
+              transition: "all 0.15s",
+            }}
+          >
+            {v === "distribution" ? "Distribution" : "Sweep"}
+          </button>
+        ))}
+      </div>
+
+      {/* Chart area */}
+      <div style={{ padding: "16px 28px 32px", flex: 1 }}>
+        {view === "distribution" ? (
+          <>
+            <p
+              style={{
+                margin: "0 0 12px",
+                fontSize: 10,
+                color: "#bbb",
+                letterSpacing: "0.15em",
+                textTransform: "uppercase",
+              }}
+            >
+              Exact probability per outcome
+            </p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+              {distribution.map(({ k, prob }) => {
+                const highlighted =
+                  mode === "gte" ? k >= threshold : k <= threshold;
+                const w = maxProb > 0 ? (prob / maxProb) * 100 : 0;
+                return (
+                  <div
+                    key={k}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 10,
+                      opacity: prob < 0.001 ? 0.3 : 1,
+                    }}
+                  >
+                    <span
+                      style={{
+                        width: 24,
+                        fontSize: 11,
+                        textAlign: "right",
+                        color: highlighted ? "#1a1a1a" : "#ccc",
+                        fontWeight: highlighted ? 500 : 400,
+                      }}
+                    >
+                      {k}
+                    </span>
+                    <div
+                      style={{
+                        flex: 1,
+                        height: 18,
+                        background: "#ece9e4",
+                        borderRadius: 3,
+                        overflow: "hidden",
+                      }}
+                    >
+                      <div
+                        style={{
+                          height: "100%",
+                          borderRadius: 3,
+                          width: `${w}%`,
+                          transition: "width 0.3s ease",
+                          background: highlighted ? "#1a1a1a" : "#d4d0cb",
+                        }}
+                      />
+                    </div>
+                    <span
+                      style={{
+                        width: 42,
+                        fontSize: 11,
+                        textAlign: "right",
+                        color: highlighted ? "#1a1a1a" : "#bbb",
+                      }}
+                    >
+                      {fmt(prob)}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
-        </div>
-
-        <div class="input-group">
-            <label id="secondaryLabel">Dice in Pool</label>
-            <div class="stepper">
-                <button class="step-btn" onclick="updateVal('secondary', -1)">−</button>
-                <div class="step-value" id="secondaryVal">5</div>
-                <button class="step-btn" onclick="updateVal('secondary', 1)">+</button>
+          </>
+        ) : (
+          <>
+            <p
+              style={{
+                margin: "0 0 12px",
+                fontSize: 10,
+                color: "#bbb",
+                letterSpacing: "0.15em",
+                textTransform: "uppercase",
+              }}
+            >
+              P({modeSymbol}
+              {threshold}) across pool sizes
+            </p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+              {sweep.map(({ n, p: sp }) => {
+                const isActive = n === diceCount;
+                return (
+                  <div
+                    key={n}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 10,
+                      cursor: "pointer",
+                    }}
+                    onClick={() => setDiceCount(n)}
+                  >
+                    <span
+                      style={{
+                        width: 32,
+                        fontSize: 11,
+                        textAlign: "right",
+                        color: isActive ? "#1a1a1a" : "#ccc",
+                        fontWeight: isActive ? 500 : 400,
+                      }}
+                    >
+                      {n}d
+                    </span>
+                    <div
+                      style={{
+                        flex: 1,
+                        height: 18,
+                        background: "#ece9e4",
+                        borderRadius: 3,
+                        overflow: "hidden",
+                      }}
+                    >
+                      <div
+                        style={{
+                          height: "100%",
+                          borderRadius: 3,
+                          width: `${sp * 100}%`,
+                          transition: "width 0.3s ease",
+                          background: isActive ? "#1a1a1a" : "#c8c4be",
+                        }}
+                      />
+                    </div>
+                    <span
+                      style={{
+                        width: 42,
+                        fontSize: 11,
+                        textAlign: "right",
+                        color: isActive ? "#1a1a1a" : "#bbb",
+                      }}
+                    >
+                      {sp > 0 ? fmt(sp) : "—"}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
-        </div>
+          </>
+        )}
+      </div>
     </div>
+  );
+}
 
-    <div class="chart-wrapper">
-        <canvas id="mainChart"></canvas>
+function Control({ label, value, min, max, onChange }) {
+  return (
+    <div
+      style={{ background: "#ece9e4", borderRadius: 10, padding: "14px 16px" }}
+    >
+      <p
+        style={{
+          margin: "0 0 8px",
+          fontSize: 10,
+          letterSpacing: "0.16em",
+          textTransform: "uppercase",
+          color: "#999",
+        }}
+      >
+        {label}
+      </p>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+        }}
+      >
+        <button
+          onClick={() => onChange(-1)}
+          disabled={value <= min}
+          style={{
+            width: 32,
+            height: 32,
+            borderRadius: "50%",
+            border: "1px solid #d4d0cb",
+            background: "#f7f5f2",
+            color: "#1a1a1a",
+            fontSize: 18,
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            opacity: value <= min ? 0.3 : 1,
+            fontFamily: "inherit",
+            lineHeight: 1,
+          }}
+        >
+          −
+        </button>
+        <span
+          style={{
+            fontFamily: "'Fraunces', serif",
+            fontSize: 32,
+            fontWeight: 300,
+            color: "#1a1a1a",
+            letterSpacing: "-0.02em",
+          }}
+        >
+          {value}
+        </span>
+        <button
+          onClick={() => onChange(1)}
+          disabled={value >= max}
+          style={{
+            width: 32,
+            height: 32,
+            borderRadius: "50%",
+            border: "1px solid #d4d0cb",
+            background: "#f7f5f2",
+            color: "#1a1a1a",
+            fontSize: 18,
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            opacity: value >= max ? 0.3 : 1,
+            fontFamily: "inherit",
+            lineHeight: 1,
+          }}
+        >
+          +
+        </button>
+      </div>
     </div>
-
-    <div class="table-container">
-        <table>
-            <thead id="tableHead"></thead>
-            <tbody id="tableBody"></tbody>
-        </table>
-    </div>
-
-    <div class="compare-box">
-        <div class="compare-title">Compare Results (Tap rows)</div>
-        <div class="compare-grid" id="compareDisplay">
-            <span style="color:#94a3b8; font-weight:normal; font-size:0.75rem">Tap two rows to see the difference</span>
-        </div>
-    </div>
-</div>
-
-<script>
-    let currentTab = 'single';
-    let currentMode = 'over';
-    let dieTarget = 5; 
-    let secondaryVal = 5; 
-    let myChart;
-    let selectedRows = [];
-
-    function combinations(n, k) {
-        if (k < 0 || k > n) return 0;
-        let res = 1;
-        for (let i = 1; i <= k; i++) res = res * (n - i + 1) / i;
-        return res;
-    }
-
-    function setTab(tab) {
-        currentTab = tab;
-        selectedRows = [];
-        document.querySelectorAll('.tab').forEach((t) => t.classList.toggle('active', t.innerText.toLowerCase().includes(tab)));
-        document.getElementById('secondaryLabel').innerText = tab === 'single' ? 'Dice in Pool' : 'Hits Needed';
-        calculate();
-    }
-
-    function setMode(mode) {
-        currentMode = mode;
-        selectedRows = [];
-        if (mode === 'over') {
-            dieTarget = Math.max(2, dieTarget);
-        } else {
-            dieTarget = Math.min(5, dieTarget);
-        }
-        document.getElementById('modeOver').classList.toggle('active', mode === 'over');
-        document.getElementById('modeUnder').classList.toggle('active', mode === 'under');
-        calculate();
-    }
-
-    function updateVal(type, change) {
-        if (type === 'dieTarget') {
-            const min = currentMode === 'under' ? 1 : 2;
-            const max = currentMode === 'under' ? 5 : 6;
-            dieTarget = Math.min(max, Math.max(min, dieTarget + change));
-        } else {
-            secondaryVal = Math.min(10, Math.max(1, secondaryVal + change));
-        }
-        selectedRows = [];
-        calculate();
-    }
-
-    function toggleRowSelection(id, prob) {
-        const index = selectedRows.findIndex(r => r.id === id);
-        if (index > -1) {
-            selectedRows.splice(index, 1);
-        } else {
-            if (selectedRows.length >= 2) selectedRows.shift();
-            selectedRows.push({id, prob});
-        }
-        calculate(false);
-    }
-
-    function calculate(resetSelections = true) {
-        if (resetSelections === true) selectedRows = [];
-        
-        const p = currentMode === 'over' ? (7 - dieTarget) / 6 : dieTarget / 6;
-        const labels = [], exactData = [], cumulativeData = [];
-        const tbody = document.getElementById('tableBody');
-        const thead = document.getElementById('tableHead');
-        tbody.innerHTML = '';
-        
-        document.getElementById('dieTargetVal').innerText = dieTarget + (currentMode === 'over' ? '+' : '-');
-        document.getElementById('secondaryVal').innerText = secondaryVal;
-
-        if (currentTab === 'single') {
-            thead.innerHTML = '<tr><th>Hits</th><th>Exactly</th><th>At Least</th></tr>';
-            let exactProbs = [];
-            for (let k = 0; k <= secondaryVal; k++) {
-                const prob = combinations(secondaryVal, k) * Math.pow(p, k) * Math.pow(1 - p, secondaryVal - k);
-                exactProbs.push(prob);
-            }
-            for (let k = 0; k <= secondaryVal; k++) {
-                labels.push(k);
-                const e = (exactProbs[k] * 100).toFixed(1);
-                const c = (exactProbs.slice(k).reduce((a, b) => a + b, 0) * 100).toFixed(1);
-                exactData.push(e); cumulativeData.push(c);
-                const isSelected = selectedRows.some(r => r.id === k);
-                tbody.insertAdjacentHTML('beforeend', `
-                    <tr class="${isSelected ? 'selected' : ''}" onclick="toggleRowSelection(${k}, ${c})">
-                        <td>${k}</td><td>${e}%</td><td>${c}%</td>
-                    </tr>`);
-            }
-            renderChart(labels, [
-                {type:'bar', data:exactData, color:'rgba(99, 102, 241, 0.4)', label: 'Exactly'},
-                {type:'line', data:cumulativeData, color:'#f97316', label: 'At Least'}
-            ]);
-        } else {
-            thead.innerHTML = '<tr><th>Dice Pool</th><th>Prob. of Success</th></tr>';
-            for (let n = 1; n <= 10; n++) {
-                labels.push(n + 'd');
-                let probSum = 0;
-                for (let k = secondaryVal; k <= n; k++) {
-                    probSum += combinations(n, k) * Math.pow(p, k) * Math.pow(1 - p, n - k);
-                }
-                const pct = (probSum * 100).toFixed(1);
-                cumulativeData.push(pct);
-                const isSelected = selectedRows.some(r => r.id === n);
-                tbody.insertAdjacentHTML('beforeend', `
-                    <tr class="${isSelected ? 'selected' : ''}" onclick="toggleRowSelection(${n}, ${pct})">
-                        <td>${n}d</td><td class="${pct > 70 ? 'high' : pct < 30 ? 'low' : ''}">${pct}%</td>
-                    </tr>`);
-            }
-            renderChart(labels, [{type:'line', data:cumulativeData, color:'#6366f1', label: 'Success Chance'}]);
-        }
-        updateCompareDisplay();
-    }
-
-    function updateCompareDisplay() {
-        const display = document.getElementById('compareDisplay');
-        if (selectedRows.length < 2) {
-            display.innerHTML = `<span style="color:#94a3b8; font-weight:normal; font-size:0.75rem">Tap two rows to see the difference</span>`;
-            return;
-        }
-        const r1 = selectedRows[0], r2 = selectedRows[1];
-        const diff = Math.abs(r1.prob - r2.prob).toFixed(1);
-        display.innerHTML = `<span>${r1.prob}%</span> <span style="color:#94a3b8">vs</span> <span>${r2.prob}%</span> <span class="diff-tag">Δ ${diff}%</span>`;
-    }
-
-    function renderChart(labels, datasets) {
-        const ctx = document.getElementById('mainChart').getContext('2d');
-        if (myChart) myChart.destroy();
-        myChart = new Chart(ctx, {
-            data: {
-                labels: labels,
-                datasets: datasets.map(d => ({
-                    type: d.type, label: d.label, data: d.data, borderColor: d.color, backgroundColor: d.color,
-                    borderWidth: 2, pointRadius: 3, tension: 0.3, borderRadius: 3
-                }))
-            },
-            options: {
-                responsive: true, maintainAspectRatio: false,
-                scales: { 
-                    x: { ticks: { font: { size: 10 } }, grid: { display: false } },
-                    y: { beginAtZero: true, max: 100, ticks: { font: { size: 10 }, stepSize: 25, callback: v => v + '%' } }
-                },
-                plugins: { legend: { display: true, position: 'top', labels: { boxWidth: 8, font: { size: 9 } } } }
-            }
-        });
-    }
-
-    calculate();
-</script>
-</body>
-</html>
+  );
+}
