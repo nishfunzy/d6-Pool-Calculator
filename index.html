@@ -1,39 +1,667 @@
-import { useState } from "react";
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#f7f5f2" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <title>Dice Pool — Probability Calculator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Fraunces:opsz,wght@9..144,300;9..144,600&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; -webkit-tap-highlight-color: transparent; margin: 0; padding: 0; }
+    html, body { background: #f7f5f2; font-family: 'DM Mono', 'Courier New', monospace; }
+    html { overflow-y: scroll; }
+    button { cursor: pointer; font-family: inherit; }
+    button:active { opacity: 0.55; }
 
-const DICE = [
-  { sides: 4, label: "d4" },
-  { sides: 6, label: "d6" },
-  { sides: 8, label: "d8" },
-  { sides: 10, label: "d10" },
-  { sides: 12, label: "d12" },
-  { sides: 20, label: "d20" },
-];
+    #app {
+      max-width: 480px;
+      margin: 0 auto;
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      color: #1a1a1a;
+      background: #f7f5f2;
+    }
 
-const binom = (n, k) => {
-  if (k < 0 || k > n) return 0;
-  if (k === 0 || k === n) return 1;
-  let r = 1;
-  for (let i = 0; i < k; i++) r = (r * (n - i)) / (i + 1);
-  return r;
-};
+    /* ── Header ── */
+    header {
+      padding: 32px 28px 20px;
+      border-bottom: 1px solid #ccc9c3;
+    }
+    header .eyebrow {
+      font-size: 11px; letter-spacing: 0.2em;
+      text-transform: uppercase; color: #666; margin-bottom: 4px;
+    }
+    header h1 {
+      font-family: 'Fraunces', serif; font-size: 34px;
+      font-weight: 600; color: #1a1a1a; letter-spacing: -0.03em;
+    }
 
-const exactProb = (n, k, p) =>
-  binom(n, k) * Math.pow(p, k) * Math.pow(1 - p, n - k);
+    /* ── Config panel ── */
+    #config {
+      padding: 8px 0;
+      border-bottom: 1px solid #ccc9c3;
+    }
 
-const atLeastProb = (n, threshold, p) => {
-  let prob = 0;
-  for (let k = threshold; k <= n; k++) prob += exactProb(n, k, p);
-  return prob;
-};
+    .config-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 28px;
+      min-height: 54px;
+      border-bottom: 1px solid #e8e4df;
+    }
+    .config-row:last-child { border-bottom: none; }
 
-const atMostProb = (n, threshold, p) => {
-  let prob = 0;
-  for (let k = 0; k <= threshold; k++) prob += exactProb(n, k, p);
-  return prob;
-};
+    /* Grouped rows — subtle background tint to signal relationship */
+    .config-group {
+      background: #f0ede8;
+      margin: 0;
+    }
+    .config-group .config-row {
+      background: transparent;
+    }
+    .config-group .config-row-label {
+      color: #444;
+    }
 
-const fmt = (p) => (p * 100).toFixed(1) + "%";
+    .config-row-label {
+      font-size: 11px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: #555;
+      flex-shrink: 0;
+      width: 90px;
+      font-weight: 500;
+    }
 
+    .config-row-control {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex: 1;
+      justify-content: flex-end;
+    }
+
+    /* Custom dropdown */
+    .custom-select {
+      position: relative;
+      min-width: 160px;
+    }
+    .custom-select-btn {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 7px 12px;
+      background: #1a1a1a;
+      color: #f7f5f2;
+      border: none;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+      cursor: pointer;
+      transition: background 0.12s;
+      white-space: nowrap;
+    }
+    .custom-select-btn:active { background: #333; opacity: 1; }
+    .select-arrow {
+      font-size: 9px;
+      opacity: 0.6;
+      transition: transform 0.2s;
+      flex-shrink: 0;
+    }
+    .custom-select.open .select-arrow { transform: rotate(180deg); }
+    .custom-select-dropdown {
+      display: none;
+      position: absolute;
+      right: 0;
+      top: calc(100% + 6px);
+      background: #1a1a1a;
+      border-radius: 8px;
+      overflow: hidden;
+      z-index: 100;
+      min-width: 100%;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+    }
+    .custom-select.open .custom-select-dropdown { display: block; }
+    .dropdown-option {
+      display: block;
+      width: 100%;
+      padding: 10px 14px;
+      border: none;
+      background: transparent;
+      color: #aaa;
+      font-size: 12px;
+      font-family: inherit;
+      letter-spacing: 0.04em;
+      text-align: left;
+      cursor: pointer;
+      transition: background 0.1s, color 0.1s;
+      border-bottom: 1px solid #2e2e2e;
+      white-space: nowrap;
+    }
+    .dropdown-option:last-child { border-bottom: none; }
+    .dropdown-option:hover { background: #2e2e2e; color: #f7f5f2; }
+    .dropdown-option.active { color: #f7f5f2; font-weight: 500; }
+
+    /* Inline spinner */
+    .spinner {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .spin-btn {
+      width: 30px; height: 30px; border-radius: 50%;
+      border: 1.5px solid #999; background: transparent;
+      color: #1a1a1a; font-size: 17px;
+      display: flex; align-items: center; justify-content: center;
+      transition: opacity 0.15s; line-height: 1; flex-shrink: 0;
+    }
+    .spin-btn:disabled { opacity: 0.2; cursor: default; }
+    .spin-value {
+      font-family: 'Fraunces', serif;
+      font-size: 26px; font-weight: 300;
+      letter-spacing: -0.02em;
+      width: 52px; text-align: center;
+      color: #1a1a1a;
+    }
+    /* Die value uses same width, slightly smaller font to fit "d100" */
+    .spin-value-die {
+      font-family: 'Fraunces', serif;
+      font-size: 22px; font-weight: 300;
+      letter-spacing: -0.01em;
+      width: 52px; text-align: center;
+      color: #1a1a1a;
+    }
+
+    /* At least / at most inline toggle inside the hits row */
+    .inline-toggle {
+      display: flex;
+      border: 1.5px solid #999;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    .inline-toggle-btn {
+      padding: 5px 10px;
+      border: none;
+      background: transparent;
+      color: #666;
+      font-size: 11px;
+      font-weight: 400;
+      letter-spacing: 0.06em;
+      transition: background 0.12s, color 0.12s;
+      white-space: nowrap;
+    }
+    .inline-toggle-btn:not(:last-child) {
+      border-right: 1.5px solid #999;
+    }
+    .inline-toggle-btn.active {
+      background: #1a1a1a;
+      color: #f7f5f2;
+      font-weight: 500;
+    }
+
+    /* ── Result area ── */
+    #result-area { padding: 20px 28px 20px; }
+
+    #result-card {
+      border-radius: 12px; padding: 28px 24px;
+      display: flex; align-items: flex-end; justify-content: space-between;
+      position: relative; overflow: hidden; background: #1a1a1a; min-height: 100px;
+    }
+    #result-fill {
+      position: absolute; top: 0; left: 0; bottom: 0;
+      background: #2e2e2e;
+      transition: width 0.5s cubic-bezier(0.4,0,0.2,1);
+    }
+    #result-line {
+      position: absolute; top: 0; bottom: 0; width: 1px;
+      background: #444;
+      transition: left 0.5s cubic-bezier(0.4,0,0.2,1);
+    }
+    #result-left { position: relative; z-index: 1; }
+    #result-label {
+      font-size: 11px; color: #888; letter-spacing: 0.12em;
+      text-transform: uppercase; margin-bottom: 4px;
+    }
+    #result-pct {
+      font-family: 'Fraunces', serif; font-size: 52px; font-weight: 600;
+      color: #f7f5f2; letter-spacing: -0.03em; line-height: 1;
+    }
+    #result-right { text-align: right; position: relative; z-index: 1; }
+    #result-1in-label {
+      font-size: 10px; color: #777; letter-spacing: 0.12em;
+      text-transform: uppercase; margin-bottom: 2px;
+    }
+    #result-1in {
+      font-family: 'Fraunces', serif; font-size: 22px;
+      color: #f7f5f2; font-weight: 300;
+    }
+
+    /* ── Tabs ── */
+    #tabs {
+      padding: 0 28px 12px; display: flex; justify-content: center; border-bottom: 1px solid #ccc9c3;
+    }
+    .tab-btn {
+      padding: 6px 16px 8px; border: none; background: transparent;
+      font-size: 11px; letter-spacing: 0.15em; text-transform: uppercase;
+      color: #888; font-weight: 400; border-bottom: 2px solid transparent;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .tab-btn.active { color: #1a1a1a; font-weight: 500; border-bottom-color: #1a1a1a; }
+
+    /* ── Chart ── */
+    #chart-area { padding: 16px 28px 40px; flex: 1; }
+    .chart-title {
+      font-size: 10px; color: #888; letter-spacing: 0.15em;
+      text-transform: uppercase; margin-bottom: 12px;
+      text-align: center;
+      min-height: 14px;
+    }
+    .bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 5px; }
+    .bar-key {
+      width: 36px; font-size: 11px; text-align: right;
+      color: #999; font-weight: 400; flex-shrink: 0;
+    }
+    .bar-key.hi { color: #1a1a1a; font-weight: 500; }
+    .bar-track { flex: 1; height: 18px; background: #e0dcd6; border-radius: 3px; overflow: hidden; }
+    .bar-fill { height: 100%; border-radius: 3px; background: #bbb8b2; transition: width 0.3s ease; }
+    .bar-fill.hi { background: #1a1a1a; }
+    .bar-val { width: 44px; font-size: 11px; text-align: right; color: #888; flex-shrink: 0; }
+    .bar-val.hi { color: #1a1a1a; }
+    .sweep-row { cursor: pointer; }
+    .sweep-row .bar-fill { background: #b0ada8; }
+    .sweep-row.active .bar-fill { background: #1a1a1a; }
+    .sweep-row.active .bar-key { color: #1a1a1a; font-weight: 500; }
+    .sweep-row.active .bar-val { color: #1a1a1a; }
+  </style>
+</head>
+<body>
+<div id="app">
+
+  <header>
+    <p class="eyebrow">Dice Pool Probability</p>
+    <h1>Rollplay</h1>
+  </header>
+
+  <div id="config">
+
+    <!-- Die spinner -->
+    <div class="config-row">
+      <span class="config-row-label">Die</span>
+      <div class="config-row-control">
+        <div class="spinner">
+          <button class="spin-btn" id="die-down">&#8722;</button>
+          <span class="spin-value-die" id="die-val">d6</span>
+          <button class="spin-btn" id="die-up">+</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Dice count -->
+    <div class="config-row">
+      <span class="config-row-label">Pool</span>
+      <div class="config-row-control">
+        <div class="spinner">
+          <button class="spin-btn" id="dice-down">&#8722;</button>
+          <span class="spin-value" id="dice-val">6</span>
+          <button class="spin-btn" id="dice-up">+</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Grouped: success condition + target + successes threshold -->
+    <div class="config-group">
+
+      <div class="config-row">
+        <span class="config-row-label">Success</span>
+        <div class="config-row-control">
+          <div class="custom-select" id="sc-select">
+            <button class="custom-select-btn" id="sc-btn">
+              <span id="sc-label-text">Roll &ge; target</span>
+              <span class="select-arrow">&#9660;</span>
+            </button>
+            <div class="custom-select-dropdown" id="sc-dropdown">
+              <button class="dropdown-option active" data-sc="gte">Roll &ge; target</button>
+              <button class="dropdown-option" data-sc="lte">Roll &le; target</button>
+              <button class="dropdown-option" data-sc="exact">Roll exact</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="config-row">
+        <span class="config-row-label" id="target-label">Target &ge;</span>
+        <div class="config-row-control">
+          <div class="spinner">
+            <button class="spin-btn" id="target-down">&#8722;</button>
+            <span class="spin-value" id="target-val">4</span>
+            <button class="spin-btn" id="target-up">+</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="config-row">
+        <span class="config-row-label">Hits</span>
+        <div class="config-row-control">
+          <div style="display:flex; align-items:center; gap:12px;">
+            <div class="inline-toggle" id="pool-mode-toggle">
+              <button class="inline-toggle-btn active" data-pm="gte">&ge;</button>
+              <button class="inline-toggle-btn" data-pm="lte">&le;</button>
+            </div>
+            <div class="spinner">
+              <button class="spin-btn" id="thresh-down">&#8722;</button>
+              <span class="spin-value" id="thresh-val">3</span>
+              <button class="spin-btn" id="thresh-up">+</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- Result card -->
+  <div id="result-area">
+    <div id="result-card">
+      <div id="result-fill"></div>
+      <div id="result-line"></div>
+      <div id="result-left">
+        <p id="result-label"></p>
+        <p id="result-pct"></p>
+      </div>
+      <div id="result-right">
+        <p id="result-1in-label">1 in</p>
+        <p id="result-1in"></p>
+      </div>
+    </div>
+  </div>
+
+  <div id="tabs">
+    <button class="tab-btn active" data-tab="distribution">Distribution</button>
+    <button class="tab-btn" data-tab="sweep">Sweep</button>
+  </div>
+  <div id="chart-area"></div>
+
+</div>
+<script>
+  // Ordered list of standard die sizes
+  const DIE_SIZES = [2, 3, 4, 6, 8, 10, 12, 20, 100];
+
+  const SC_LABELS = {
+    gte: 'Roll \u2265 target',
+    lte: 'Roll \u2264 target',
+    exact: 'Roll exact'
+  };
+
+  const state = {
+    diceCount: 6,
+    target: 4,
+    threshold: 3,
+    dieIndex: 3,
+    sc: 'gte',
+    poolMode: 'gte',
+    view: 'distribution',
+  };
+
+  function dieType() { return DIE_SIZES[state.dieIndex]; }
+
+  // Close dropdown when clicking outside
+  document.addEventListener('click', function(e) {
+    const sel = document.getElementById('sc-select');
+    if (!sel.contains(e.target)) sel.classList.remove('open');
+  });
+
+  document.getElementById('sc-btn').addEventListener('click', function(e) {
+    e.stopPropagation();
+    document.getElementById('sc-select').classList.toggle('open');
+  });
+
+  document.querySelectorAll('#sc-dropdown .dropdown-option').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      state.sc = btn.dataset.sc;
+      document.getElementById('sc-select').classList.remove('open');
+      render();
+    });
+  });
+
+  function binom(n, k) {
+    if (k < 0 || k > n) return 0;
+    if (k === 0 || k === n) return 1;
+    let r = 1;
+    for (let i = 0; i < k; i++) r = r * (n - i) / (i + 1);
+    return r;
+  }
+
+  function exactProb(n, k, p) {
+    if (p <= 0) return k === 0 ? 1 : 0;
+    if (p >= 1) return k === n ? 1 : 0;
+    return binom(n, k) * Math.pow(p, k) * Math.pow(1 - p, n - k);
+  }
+
+  function atLeastProb(n, t, p) {
+    let prob = 0;
+    for (let k = t; k <= n; k++) prob += exactProb(n, k, p);
+    return prob;
+  }
+
+  function atMostProb(n, t, p) {
+    let prob = 0;
+    for (let k = 0; k <= t; k++) prob += exactProb(n, k, p);
+    return prob;
+  }
+
+  function pSuccess() {
+    const sides = dieType();
+    const { target, sc } = state;
+    if (sc === 'gte') return Math.max(0, sides - target + 1) / sides;
+    if (sc === 'lte') return Math.min(target, sides) / sides;
+    if (sc === 'exact') return (target >= 1 && target <= sides) ? 1 / sides : 0;
+    return 0;
+  }
+
+  function getResult(n, thresh) {
+    n = n !== undefined ? n : state.diceCount;
+    thresh = thresh !== undefined ? thresh : state.threshold;
+    const p = pSuccess();
+    return state.poolMode === 'gte'
+      ? atLeastProb(n, thresh, p)
+      : atMostProb(n, thresh, p);
+  }
+
+    function fmt(p) { return (p * 100).toFixed(1) + '%'; }
+
+  function scShort() {
+    const { sc, target } = state;
+    if (sc === 'gte') return target + '+';
+    if (sc === 'lte') return target + '\u2212';
+    return '=' + target;
+  }
+
+  function pmSym() { return state.poolMode === 'gte' ? '\u2265' : '\u2264'; }
+
+  function render() {
+    const { diceCount, target, threshold, sc, poolMode, view } = state;
+    const sides = dieType();
+    const result = getResult();
+
+    // Die spinner
+    document.getElementById('die-val').textContent = 'd' + sides;
+    document.getElementById('die-down').disabled = state.dieIndex <= 0;
+    document.getElementById('die-up').disabled = state.dieIndex >= DIE_SIZES.length - 1;
+    // Clamp target to new die size
+    if (state.target > sides) state.target = sides;
+
+    // Dice spinner
+    document.getElementById('dice-val').textContent = diceCount;
+    document.getElementById('dice-down').disabled = diceCount <= 1;
+    document.getElementById('dice-up').disabled = diceCount >= 20;
+
+    // Dropdown label + active state
+    document.getElementById('sc-label-text').textContent = SC_LABELS[sc];
+    document.querySelectorAll('#sc-dropdown .dropdown-option').forEach(function(btn) {
+      btn.classList.toggle('active', btn.dataset.sc === sc);
+    });
+
+    // Target label + spinner
+    const tlabel = sc === 'gte' ? 'Target \u2265' : sc === 'lte' ? 'Target \u2264' : 'Target =';
+    document.getElementById('target-label').textContent = tlabel;
+    document.getElementById('target-val').textContent = state.target;
+    document.getElementById('target-down').disabled = state.target <= 1;
+    document.getElementById('target-up').disabled = state.target >= sides;
+
+    // Pool mode inline toggle
+    document.querySelectorAll('.inline-toggle-btn').forEach(function(btn) {
+      btn.classList.toggle('active', btn.dataset.pm === poolMode);
+    });
+
+    // Threshold spinner
+    document.getElementById('thresh-val').textContent = threshold;
+    document.getElementById('thresh-down').disabled = threshold <= 0;
+    document.getElementById('thresh-up').disabled = threshold >= diceCount;
+
+    // Result card
+    const pPct = Math.round(pSuccess() * 100);
+    document.getElementById('result-label').textContent =
+      pmSym() + threshold + ' hits \u00b7 ' + diceCount + 'd' + sides + ' \u00b7 ' + scShort() + ' (' + pPct + '% each)';
+    document.getElementById('result-pct').textContent = fmt(result);
+    document.getElementById('result-1in').textContent =
+      result > 0 ? (1 / result).toFixed(1) : '\u221e';
+    document.getElementById('result-fill').style.width = (result * 100) + '%';
+    const lineEl = document.getElementById('result-line');
+    lineEl.style.left = (result * 100) + '%';
+    lineEl.style.display = (result > 0.001 && result < 0.999) ? 'block' : 'none';
+
+    // Tabs
+    document.querySelectorAll('.tab-btn').forEach(function(btn) {
+      btn.classList.toggle('active', btn.dataset.tab === view);
+    });
+
+    renderChart();
+  }
+
+  function renderChart() {
+    const { diceCount, threshold, poolMode, view } = state;
+    const p = pSuccess();
+    const area = document.getElementById('chart-area');
+    area.innerHTML = '';
+
+    const title = document.createElement('p');
+    title.className = 'chart-title';
+
+    if (view === 'distribution') {
+      title.textContent = 'Exact probability per success count';
+      area.appendChild(title);
+
+      const dist = [];
+      for (let k = 0; k <= diceCount; k++) dist.push({ k: k, prob: exactProb(diceCount, k, pSuccess()) });
+      const maxP = Math.max.apply(null, dist.map(function(d) { return d.prob; }));
+
+      dist.forEach(function(d) {
+        const hi = poolMode === 'gte' ? d.k >= threshold : d.k <= threshold;
+        const w = maxP > 0 ? (d.prob / maxP) * 100 : 0;
+        const row = document.createElement('div');
+        row.className = 'bar-row';
+        row.style.opacity = d.prob < 0.001 ? '0.25' : '1';
+        const key = document.createElement('span');
+        key.className = 'bar-key' + (hi ? ' hi' : '');
+        key.textContent = d.k;
+        const track = document.createElement('div');
+        track.className = 'bar-track';
+        const fill = document.createElement('div');
+        fill.className = 'bar-fill' + (hi ? ' hi' : '');
+        fill.style.width = w + '%';
+        track.appendChild(fill);
+        const val = document.createElement('span');
+        val.className = 'bar-val' + (hi ? ' hi' : '');
+        val.textContent = fmt(d.prob);
+        row.appendChild(key); row.appendChild(track); row.appendChild(val);
+        area.appendChild(row);
+      });
+
+    } else {
+      title.textContent = pmSym() + threshold + ' hits across pool sizes';
+      area.appendChild(title);
+
+      for (let n = 1; n <= 20; n++) {
+        const sp = poolMode === 'gte'
+          ? (threshold <= n ? atLeastProb(n, threshold, p) : 0)
+          : atMostProb(n, threshold, p);
+        const isActive = n === state.diceCount;
+        const row = document.createElement('div');
+        row.className = 'bar-row sweep-row' + (isActive ? ' active' : '');
+        (function(nn) {
+          row.addEventListener('click', function() {
+            state.diceCount = nn;
+            if (state.threshold > nn) state.threshold = nn;
+            render();
+          });
+        })(n);
+        const key = document.createElement('span');
+        key.className = 'bar-key';
+        key.textContent = n + 'd';
+        const track = document.createElement('div');
+        track.className = 'bar-track';
+        const fill = document.createElement('div');
+        fill.className = 'bar-fill';
+        fill.style.width = (sp * 100) + '%';
+        track.appendChild(fill);
+        const val = document.createElement('span');
+        val.className = 'bar-val';
+        val.textContent = sp > 0 ? fmt(sp) : '\u2014';
+        row.appendChild(key); row.appendChild(track); row.appendChild(val);
+        area.appendChild(row);
+      }
+    }
+  }
+
+  // ── Events ──
+  document.getElementById('die-down').addEventListener('click', function() {
+    if (state.dieIndex > 0) { state.dieIndex--; render(); }
+  });
+  document.getElementById('die-up').addEventListener('click', function() {
+    if (state.dieIndex < DIE_SIZES.length - 1) { state.dieIndex++; render(); }
+  });
+  document.getElementById('dice-down').addEventListener('click', function() {
+    if (state.diceCount > 1) {
+      state.diceCount--;
+      if (state.threshold > state.diceCount) state.threshold = state.diceCount;
+      render();
+    }
+  });
+  document.getElementById('dice-up').addEventListener('click', function() {
+    if (state.diceCount < 20) { state.diceCount++; render(); }
+  });
+  document.getElementById('target-down').addEventListener('click', function() {
+    if (state.target > 1) { state.target--; render(); }
+  });
+  document.getElementById('target-up').addEventListener('click', function() {
+    if (state.target < dieType()) { state.target++; render(); }
+  });
+  document.getElementById('thresh-down').addEventListener('click', function() {
+    if (state.threshold > 0) { state.threshold--; render(); }
+  });
+  document.getElementById('thresh-up').addEventListener('click', function() {
+    if (state.threshold < state.diceCount) { state.threshold++; render(); }
+  });
+  document.querySelectorAll('.inline-toggle-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() { state.poolMode = btn.dataset.pm; render(); });
+  });
+  document.querySelectorAll('.tab-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() { state.view = btn.dataset.tab; render(); });
+  });
+  render();
+</script>
+</body>
+</html>
 export default function App() {
   const [diceCount, setDiceCount] = useState(6);
   const [threshold, setThreshold] = useState(3);
