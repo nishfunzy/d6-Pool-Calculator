@@ -11,10 +11,70 @@
   <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Fraunces:opsz,wght@9..144,300;9..144,600&display=swap" rel="stylesheet" />
   <style>
     *, *::before, *::after { box-sizing: border-box; -webkit-tap-highlight-color: transparent; margin: 0; padding: 0; }
-    html, body { background: #f7f5f2; font-family: 'DM Mono', 'Courier New', monospace; }
-    html { overflow-y: scroll; }
+    html { overflow-y: scroll; font-family: 'DM Mono', 'Courier New', monospace; }
     button { cursor: pointer; font-family: inherit; }
     button:active { opacity: 0.55; }
+
+    /* ── Colour tokens ── */
+    :root {
+      --bg:        #f7f5f2;
+      --surface:   #f7f5f2;
+      --group-bg:  #f0ede8;
+      --border:    #ccc9c3;
+      --row-border:#e8e4df;
+      --ink:       #1a1a1a;
+      --ink-mid:   #555;
+      --ink-faint: #888;
+      --ink-dim:   #999;
+      --chip-bg:   #ece9e4;
+      --chip-bdr:  #c8c4be;
+      --chip-txt:  #444;
+      --spin-bdr:  #999;
+      --tog-bdr:   #999;
+      --tog-txt:   #666;
+      --bar-track: #e0dcd6;
+      --bar-fill:  #bbb8b2;
+      --bar-sweep: #b0ada8;
+      --card-bg:   #1a1a1a;
+      --card-fill: #2e2e2e;
+      --card-line: #444;
+      --card-txt:  #f7f5f2;
+      --card-sub:  #888;
+      --card-dim:  #777;
+      --dd-bg:     #1a1a1a;
+      --dd-bdr:    #2e2e2e;
+      --dd-txt:    #aaa;
+    }
+    html.dark {
+      --bg:        #141414;
+      --surface:   #141414;
+      --group-bg:  #1c1c1c;
+      --border:    #333;
+      --row-border:#252525;
+      --ink:       #f0ede8;
+      --ink-mid:   #aaa;
+      --ink-faint: #777;
+      --ink-dim:   #666;
+      --chip-bg:   #252525;
+      --chip-bdr:  #404040;
+      --chip-txt:  #ccc;
+      --spin-bdr:  #555;
+      --tog-bdr:   #555;
+      --tog-txt:   #999;
+      --bar-track: #2a2a2a;
+      --bar-fill:  #555;
+      --bar-sweep: #484848;
+      --card-bg:   #f0ede8;
+      --card-fill: #dedad4;
+      --card-line: #bbb;
+      --card-txt:  #141414;
+      --card-sub:  #777;
+      --card-dim:  #888;
+      --dd-bg:     #f0ede8;
+      --dd-bdr:    #dedad4;
+      --dd-txt:    #666;
+    }
+    body { background: var(--bg); }
 
     #app {
       max-width: 480px;
@@ -23,27 +83,27 @@
       display: flex;
       flex-direction: column;
       color: #1a1a1a;
-      background: #f7f5f2;
+      background: var(--surface);
     }
 
     /* ── Header ── */
     header {
       padding: 32px 28px 20px;
-      border-bottom: 1px solid #ccc9c3;
+      border-bottom: 1px solid var(--border);
     }
     header .eyebrow {
       font-size: 11px; letter-spacing: 0.2em;
-      text-transform: uppercase; color: #666; margin-bottom: 4px;
+      text-transform: uppercase; color: var(--ink-mid); margin-bottom: 4px;
     }
     header h1 {
       font-family: 'Fraunces', serif; font-size: 34px;
-      font-weight: 600; color: #1a1a1a; letter-spacing: -0.03em;
+      font-weight: 600; color: var(--ink); letter-spacing: -0.03em;
     }
 
     /* ── Config panel ── */
     #config {
       padding: 8px 0;
-      border-bottom: 1px solid #ccc9c3;
+      border-bottom: 1px solid var(--border);
     }
 
     .config-row {
@@ -52,26 +112,27 @@
       justify-content: space-between;
       padding: 0 28px;
       min-height: 54px;
-      border-bottom: 1px solid #e8e4df;
+      border-bottom: 1px solid var(--row-border);
     }
     .config-row:last-child { border-bottom: none; }
 
+    /* Grouped rows — subtle background tint to signal relationship */
     .config-group {
-      background: #f0ede8;
+      background: var(--group-bg);
       margin: 0;
     }
     .config-group .config-row {
       background: transparent;
     }
     .config-group .config-row-label {
-      color: #444;
+      color: var(--ink-mid);
     }
 
     .config-row-label {
       font-size: 11px;
       letter-spacing: 0.14em;
       text-transform: uppercase;
-      color: #555;
+      color: var(--ink-mid);
       flex-shrink: 0;
       width: 90px;
       font-weight: 500;
@@ -97,8 +158,8 @@
       justify-content: space-between;
       gap: 8px;
       padding: 7px 12px;
-      background: #1a1a1a;
-      color: #f7f5f2;
+      background: var(--ink);
+      color: var(--bg);
       border: none;
       border-radius: 8px;
       font-size: 12px;
@@ -108,7 +169,7 @@
       transition: background 0.12s;
       white-space: nowrap;
     }
-    .custom-select-btn:active { background: #333; opacity: 1; }
+    .custom-select-btn:active { background: var(--card-fill); opacity: 1; }
     .select-arrow {
       font-size: 9px;
       opacity: 0.6;
@@ -121,7 +182,7 @@
       position: absolute;
       right: 0;
       top: calc(100% + 6px);
-      background: #1a1a1a;
+      background: var(--dd-bg);
       border-radius: 8px;
       overflow: hidden;
       z-index: 100;
@@ -135,19 +196,19 @@
       padding: 10px 14px;
       border: none;
       background: transparent;
-      color: #aaa;
+      color: var(--dd-txt);
       font-size: 12px;
       font-family: inherit;
       letter-spacing: 0.04em;
       text-align: left;
       cursor: pointer;
       transition: background 0.1s, color 0.1s;
-      border-bottom: 1px solid #2e2e2e;
+      border-bottom: 1px solid var(--dd-bdr);
       white-space: nowrap;
     }
     .dropdown-option:last-child { border-bottom: none; }
-    .dropdown-option:hover { background: #2e2e2e; color: #f7f5f2; }
-    .dropdown-option.active { color: #f7f5f2; font-weight: 500; }
+    .dropdown-option:hover { background: var(--dd-bdr); color: var(--ink); }
+    .dropdown-option.active { color: var(--ink); font-weight: 500; }
 
     /* Inline spinner */
     .spinner {
@@ -157,8 +218,8 @@
     }
     .spin-btn {
       width: 30px; height: 30px; border-radius: 50%;
-      border: 1.5px solid #999; background: transparent;
-      color: #1a1a1a; font-size: 17px;
+      border: 1.5px solid var(--spin-bdr); background: transparent;
+      color: var(--ink); font-size: 17px;
       display: flex; align-items: center; justify-content: center;
       transition: opacity 0.15s; line-height: 1; flex-shrink: 0;
     }
@@ -168,20 +229,21 @@
       font-size: 26px; font-weight: 300;
       letter-spacing: -0.02em;
       width: 52px; text-align: center;
-      color: #1a1a1a;
+      color: var(--ink);
     }
+    /* Die value uses same width, slightly smaller font to fit "d100" */
     .spin-value-die {
       font-family: 'Fraunces', serif;
       font-size: 22px; font-weight: 300;
       letter-spacing: -0.01em;
       width: 52px; text-align: center;
-      color: #1a1a1a;
+      color: var(--ink);
     }
 
-    /* At least / at most inline toggle */
+    /* At least / at most inline toggle inside the hits row */
     .inline-toggle {
       display: flex;
-      border: 1.5px solid #999;
+      border: 1.5px solid var(--tog-bdr);
       border-radius: 6px;
       overflow: hidden;
     }
@@ -197,11 +259,11 @@
       white-space: nowrap;
     }
     .inline-toggle-btn:not(:last-child) {
-      border-right: 1.5px solid #999;
+      border-right: 1.5px solid var(--tog-bdr);
     }
     .inline-toggle-btn.active {
-      background: #1a1a1a;
-      color: #f7f5f2;
+      background: var(--ink);
+      color: var(--bg);
       font-weight: 500;
     }
 
@@ -211,53 +273,53 @@
     #result-card {
       border-radius: 12px; padding: 28px 24px;
       display: flex; align-items: flex-end; justify-content: space-between;
-      position: relative; overflow: hidden; background: #1a1a1a; min-height: 100px;
+      position: relative; overflow: hidden; background: var(--card-bg); min-height: 100px;
     }
     #result-fill {
       position: absolute; top: 0; left: 0; bottom: 0;
-      background: #2e2e2e;
+      background: var(--card-fill);
       transition: width 0.5s cubic-bezier(0.4,0,0.2,1);
     }
     #result-line {
       position: absolute; top: 0; bottom: 0; width: 1px;
-      background: #444;
+      background: var(--card-line);
       transition: left 0.5s cubic-bezier(0.4,0,0.2,1);
     }
     #result-left { position: relative; z-index: 1; }
     #result-label {
-      font-size: 11px; color: #888; letter-spacing: 0.12em;
+      font-size: 11px; color: var(--card-sub); letter-spacing: 0.12em;
       text-transform: uppercase; margin-bottom: 4px;
     }
     #result-pct {
       font-family: 'Fraunces', serif; font-size: 52px; font-weight: 600;
-      color: #f7f5f2; letter-spacing: -0.03em; line-height: 1;
+      color: var(--card-txt); letter-spacing: -0.03em; line-height: 1;
     }
     #result-right { text-align: right; position: relative; z-index: 1; }
     #result-1in-label {
-      font-size: 10px; color: #777; letter-spacing: 0.12em;
+      font-size: 10px; color: var(--card-dim); letter-spacing: 0.12em;
       text-transform: uppercase; margin-bottom: 2px;
     }
     #result-1in {
       font-family: 'Fraunces', serif; font-size: 22px;
-      color: #f7f5f2; font-weight: 300;
+      color: var(--card-txt); font-weight: 300;
     }
 
     /* ── Tabs ── */
     #tabs {
-      padding: 0 28px 12px; display: flex; justify-content: center; border-bottom: 1px solid #ccc9c3;
+      padding: 0 28px 12px; display: flex; justify-content: center; border-bottom: 1px solid var(--border);
     }
     .tab-btn {
       padding: 6px 16px 8px; border: none; background: transparent;
       font-size: 11px; letter-spacing: 0.15em; text-transform: uppercase;
-      color: #888; font-weight: 400; border-bottom: 2px solid transparent;
+      color: var(--ink-faint); font-weight: 400; border-bottom: 2px solid transparent;
       transition: color 0.15s, border-color 0.15s;
     }
-    .tab-btn.active { color: #1a1a1a; font-weight: 500; border-bottom-color: #1a1a1a; }
+    .tab-btn.active { color: var(--ink); font-weight: 500; border-bottom-color: var(--ink); }
 
     /* ── Chart ── */
     #chart-area { padding: 16px 28px 40px; flex: 1; }
     .chart-title {
-      font-size: 10px; color: #888; letter-spacing: 0.15em;
+      font-size: 10px; color: var(--ink-faint); letter-spacing: 0.15em;
       text-transform: uppercase; margin-bottom: 12px;
       text-align: center;
       min-height: 14px;
@@ -265,31 +327,52 @@
     .bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 5px; }
     .bar-key {
       width: 36px; font-size: 11px; text-align: right;
-      color: #999; font-weight: 400; flex-shrink: 0;
+      color: var(--ink-dim); font-weight: 400; flex-shrink: 0;
     }
-    .bar-key.hi { color: #1a1a1a; font-weight: 500; }
-    .bar-track { flex: 1; height: 18px; background: #e0dcd6; border-radius: 3px; overflow: hidden; }
-    .bar-fill { height: 100%; border-radius: 3px; background: #bbb8b2; transition: width 0.3s ease; }
-    .bar-fill.hi { background: #1a1a1a; }
-    .bar-val { width: 44px; font-size: 11px; text-align: right; color: #888; flex-shrink: 0; }
-    .bar-val.hi { color: #1a1a1a; }
+    .bar-key.hi { color: var(--ink); font-weight: 500; }
+    .bar-track { flex: 1; height: 18px; background: var(--bar-track); border-radius: 3px; overflow: hidden; }
+    .bar-fill { height: 100%; border-radius: 3px; background: var(--bar-fill); transition: width 0.3s ease; }
+    .bar-fill.hi { background: var(--ink); }
+    .bar-val { width: 44px; font-size: 11px; text-align: right; color: var(--ink-faint); flex-shrink: 0; }
+    .bar-val.hi { color: var(--ink); }
     .sweep-row { cursor: pointer; }
-    .sweep-row .bar-fill { background: #b0ada8; }
-    .sweep-row.active .bar-fill { background: #1a1a1a; }
-    .sweep-row.active .bar-key { color: #1a1a1a; font-weight: 500; }
-    .sweep-row.active .bar-val { color: #1a1a1a; }
+    .sweep-row .bar-fill { background: var(--bar-sweep); }
+    .sweep-row.active .bar-fill { background: var(--ink); }
+    .sweep-row.active .bar-key { color: var(--ink); font-weight: 500; }
+    .sweep-row.active .bar-val { color: var(--ink); }
+
+    /* ── Theme toggle ── */
+    #theme-toggle {
+      margin-top: 6px;
+      width: 28px; height: 28px;
+      border: 1.5px solid var(--chip-bdr);
+      border-radius: 50%;
+      background: transparent;
+      color: var(--ink-mid);
+      font-size: 14px;
+      display: flex; align-items: center; justify-content: center;
+      transition: border-color 0.15s, color 0.15s;
+      flex-shrink: 0;
+    }
+    #theme-toggle:hover { border-color: var(--ink); color: var(--ink); }
   </style>
 </head>
 <body>
 <div id="app">
 
   <header>
-    <p class="eyebrow">Dice Pool Probability</p>
-    <h1>Rollplay</h1>
+    <div style="display:flex; align-items:flex-start; justify-content:space-between;">
+      <div>
+        <p class="eyebrow">Dice Pool Probability</p>
+        <h1>Rollplay</h1>
+      </div>
+      <button id="theme-toggle" title="Toggle dark mode">&#9680;</button>
+    </div>
   </header>
 
   <div id="config">
 
+    <!-- Die spinner -->
     <div class="config-row">
       <span class="config-row-label">Die</span>
       <div class="config-row-control">
@@ -301,6 +384,7 @@
       </div>
     </div>
 
+    <!-- Dice count -->
     <div class="config-row">
       <span class="config-row-label">Pool</span>
       <div class="config-row-control">
@@ -312,6 +396,7 @@
       </div>
     </div>
 
+    <!-- Grouped: success condition + target + successes threshold -->
     <div class="config-group">
 
       <div class="config-row">
@@ -363,6 +448,7 @@
 
   </div>
 
+  <!-- Result card -->
   <div id="result-area">
     <div id="result-card">
       <div id="result-fill"></div>
@@ -386,6 +472,7 @@
 
 </div>
 <script>
+  // Ordered list of standard die sizes
   const DIE_SIZES = [2, 3, 4, 6, 8, 10, 12, 20, 100];
 
   const SC_LABELS = {
@@ -406,6 +493,7 @@
 
   function dieType() { return DIE_SIZES[state.dieIndex]; }
 
+  // Close dropdown when clicking outside
   document.addEventListener('click', function(e) {
     const sel = document.getElementById('sc-select');
     if (!sel.contains(e.target)) sel.classList.remove('open');
@@ -469,7 +557,7 @@
       : atMostProb(n, thresh, p);
   }
 
-  function fmt(p) { return (p * 100).toFixed(1) + '%'; }
+    function fmt(p) { return (p * 100).toFixed(1) + '%'; }
 
   function scShort() {
     const { sc, target } = state;
@@ -485,34 +573,42 @@
     const sides = dieType();
     const result = getResult();
 
+    // Die spinner
     document.getElementById('die-val').textContent = 'd' + sides;
     document.getElementById('die-down').disabled = state.dieIndex <= 0;
     document.getElementById('die-up').disabled = state.dieIndex >= DIE_SIZES.length - 1;
+    // Clamp target to new die size
     if (state.target > sides) state.target = sides;
 
+    // Dice spinner
     document.getElementById('dice-val').textContent = diceCount;
     document.getElementById('dice-down').disabled = diceCount <= 1;
     document.getElementById('dice-up').disabled = diceCount >= 20;
 
+    // Dropdown label + active state
     document.getElementById('sc-label-text').textContent = SC_LABELS[sc];
     document.querySelectorAll('#sc-dropdown .dropdown-option').forEach(function(btn) {
       btn.classList.toggle('active', btn.dataset.sc === sc);
     });
 
+    // Target label + spinner
     const tlabel = sc === 'gte' ? 'Target \u2265' : sc === 'lte' ? 'Target \u2264' : 'Target =';
     document.getElementById('target-label').textContent = tlabel;
     document.getElementById('target-val').textContent = state.target;
     document.getElementById('target-down').disabled = state.target <= 1;
     document.getElementById('target-up').disabled = state.target >= sides;
 
+    // Pool mode inline toggle
     document.querySelectorAll('.inline-toggle-btn').forEach(function(btn) {
       btn.classList.toggle('active', btn.dataset.pm === poolMode);
     });
 
+    // Threshold spinner
     document.getElementById('thresh-val').textContent = threshold;
     document.getElementById('thresh-down').disabled = threshold <= 0;
     document.getElementById('thresh-up').disabled = threshold >= diceCount;
 
+    // Result card
     const pPct = Math.round(pSuccess() * 100);
     document.getElementById('result-label').textContent =
       pmSym() + threshold + ' hits \u00b7 ' + diceCount + 'd' + sides + ' \u00b7 ' + scShort() + ' (' + pPct + '% each)';
@@ -524,6 +620,7 @@
     lineEl.style.left = (result * 100) + '%';
     lineEl.style.display = (result > 0.001 && result < 0.999) ? 'block' : 'none';
 
+    // Tabs
     document.querySelectorAll('.tab-btn').forEach(function(btn) {
       btn.classList.toggle('active', btn.dataset.tab === view);
     });
@@ -606,6 +703,7 @@
     }
   }
 
+  // ── Events ──
   document.getElementById('die-down').addEventListener('click', function() {
     if (state.dieIndex > 0) { state.dieIndex--; render(); }
   });
@@ -640,6 +738,10 @@
   document.querySelectorAll('.tab-btn').forEach(function(btn) {
     btn.addEventListener('click', function() { state.view = btn.dataset.tab; render(); });
   });
+  document.getElementById('theme-toggle').addEventListener('click', function() {
+    document.documentElement.classList.toggle('dark');
+  });
+
   render();
 </script>
 </body>
