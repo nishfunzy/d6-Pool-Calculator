@@ -56,7 +56,6 @@
     }
     .config-row:last-child { border-bottom: none; }
 
-    /* Grouped rows — subtle background tint to signal relationship */
     .config-group {
       background: #f0ede8;
       margin: 0;
@@ -171,7 +170,6 @@
       width: 52px; text-align: center;
       color: #1a1a1a;
     }
-    /* Die value uses same width, slightly smaller font to fit "d100" */
     .spin-value-die {
       font-family: 'Fraunces', serif;
       font-size: 22px; font-weight: 300;
@@ -180,7 +178,7 @@
       color: #1a1a1a;
     }
 
-    /* At least / at most inline toggle inside the hits row */
+    /* At least / at most inline toggle */
     .inline-toggle {
       display: flex;
       border: 1.5px solid #999;
@@ -292,7 +290,6 @@
 
   <div id="config">
 
-    <!-- Die spinner -->
     <div class="config-row">
       <span class="config-row-label">Die</span>
       <div class="config-row-control">
@@ -304,7 +301,6 @@
       </div>
     </div>
 
-    <!-- Dice count -->
     <div class="config-row">
       <span class="config-row-label">Pool</span>
       <div class="config-row-control">
@@ -316,7 +312,6 @@
       </div>
     </div>
 
-    <!-- Grouped: success condition + target + successes threshold -->
     <div class="config-group">
 
       <div class="config-row">
@@ -368,7 +363,6 @@
 
   </div>
 
-  <!-- Result card -->
   <div id="result-area">
     <div id="result-card">
       <div id="result-fill"></div>
@@ -392,7 +386,6 @@
 
 </div>
 <script>
-  // Ordered list of standard die sizes
   const DIE_SIZES = [2, 3, 4, 6, 8, 10, 12, 20, 100];
 
   const SC_LABELS = {
@@ -413,7 +406,6 @@
 
   function dieType() { return DIE_SIZES[state.dieIndex]; }
 
-  // Close dropdown when clicking outside
   document.addEventListener('click', function(e) {
     const sel = document.getElementById('sc-select');
     if (!sel.contains(e.target)) sel.classList.remove('open');
@@ -477,7 +469,7 @@
       : atMostProb(n, thresh, p);
   }
 
-    function fmt(p) { return (p * 100).toFixed(1) + '%'; }
+  function fmt(p) { return (p * 100).toFixed(1) + '%'; }
 
   function scShort() {
     const { sc, target } = state;
@@ -493,42 +485,34 @@
     const sides = dieType();
     const result = getResult();
 
-    // Die spinner
     document.getElementById('die-val').textContent = 'd' + sides;
     document.getElementById('die-down').disabled = state.dieIndex <= 0;
     document.getElementById('die-up').disabled = state.dieIndex >= DIE_SIZES.length - 1;
-    // Clamp target to new die size
     if (state.target > sides) state.target = sides;
 
-    // Dice spinner
     document.getElementById('dice-val').textContent = diceCount;
     document.getElementById('dice-down').disabled = diceCount <= 1;
     document.getElementById('dice-up').disabled = diceCount >= 20;
 
-    // Dropdown label + active state
     document.getElementById('sc-label-text').textContent = SC_LABELS[sc];
     document.querySelectorAll('#sc-dropdown .dropdown-option').forEach(function(btn) {
       btn.classList.toggle('active', btn.dataset.sc === sc);
     });
 
-    // Target label + spinner
     const tlabel = sc === 'gte' ? 'Target \u2265' : sc === 'lte' ? 'Target \u2264' : 'Target =';
     document.getElementById('target-label').textContent = tlabel;
     document.getElementById('target-val').textContent = state.target;
     document.getElementById('target-down').disabled = state.target <= 1;
     document.getElementById('target-up').disabled = state.target >= sides;
 
-    // Pool mode inline toggle
     document.querySelectorAll('.inline-toggle-btn').forEach(function(btn) {
       btn.classList.toggle('active', btn.dataset.pm === poolMode);
     });
 
-    // Threshold spinner
     document.getElementById('thresh-val').textContent = threshold;
     document.getElementById('thresh-down').disabled = threshold <= 0;
     document.getElementById('thresh-up').disabled = threshold >= diceCount;
 
-    // Result card
     const pPct = Math.round(pSuccess() * 100);
     document.getElementById('result-label').textContent =
       pmSym() + threshold + ' hits \u00b7 ' + diceCount + 'd' + sides + ' \u00b7 ' + scShort() + ' (' + pPct + '% each)';
@@ -540,7 +524,6 @@
     lineEl.style.left = (result * 100) + '%';
     lineEl.style.display = (result > 0.001 && result < 0.999) ? 'block' : 'none';
 
-    // Tabs
     document.querySelectorAll('.tab-btn').forEach(function(btn) {
       btn.classList.toggle('active', btn.dataset.tab === view);
     });
@@ -623,7 +606,6 @@
     }
   }
 
-  // ── Events ──
   document.getElementById('die-down').addEventListener('click', function() {
     if (state.dieIndex > 0) { state.dieIndex--; render(); }
   });
@@ -662,556 +644,3 @@
 </script>
 </body>
 </html>
-export default function App() {
-  const [diceCount, setDiceCount] = useState(6);
-  const [threshold, setThreshold] = useState(3);
-  const [dieType, setDieType] = useState(6);
-  const [mode, setMode] = useState("gte"); // "gte" | "lte"
-  const [view, setView] = useState("distribution");
-
-  const p = 1 / dieType;
-  const result =
-    mode === "gte"
-      ? atLeastProb(diceCount, threshold, p)
-      : atMostProb(diceCount, threshold, p);
-
-  const distribution = Array.from({ length: diceCount + 1 }, (_, k) => ({
-    k,
-    prob: exactProb(diceCount, k, p),
-  }));
-  const maxProb = Math.max(...distribution.map((d) => d.prob));
-
-  const sweep = Array.from({ length: 20 }, (_, i) => {
-    const n = i + 1;
-    const sp =
-      mode === "gte"
-        ? threshold <= n
-          ? atLeastProb(n, threshold, p)
-          : 0
-        : atMostProb(n, threshold, p);
-    return { n, p: sp };
-  });
-
-  const dieName = DICE.find((d) => d.sides === dieType)?.label;
-  const modeSymbol = mode === "gte" ? "≥" : "≤";
-
-  return (
-    <div
-      style={{
-        minHeight: "100dvh",
-        background: "#f7f5f2",
-        color: "#1a1a1a",
-        fontFamily: "'DM Mono', 'Courier New', monospace",
-        maxWidth: 480,
-        margin: "0 auto",
-        display: "flex",
-        flexDirection: "column",
-      }}
-    >
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Fraunces:opsz,wght@9..144,300;9..144,600&display=swap');
-        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-        button:active { opacity: 0.6; }
-      `}</style>
-
-      {/* Header */}
-      <header
-        style={{ padding: "32px 28px 20px", borderBottom: "1px solid #e0dcd6" }}
-      >
-        <p
-          style={{
-            margin: "0 0 4px",
-            fontSize: 11,
-            letterSpacing: "0.2em",
-            textTransform: "uppercase",
-            color: "#999",
-          }}
-        >
-          Dice Pool Probability
-        </p>
-        <h1
-          style={{
-            margin: 0,
-            fontFamily: "'Fraunces', serif",
-            fontSize: 38,
-            fontWeight: 300,
-            color: "#1a1a1a",
-            letterSpacing: "-0.02em",
-          }}
-        >
-          Rollplaying
-        </h1>
-      </header>
-
-      {/* Dice type selector */}
-      <div style={{ padding: "20px 28px 0" }}>
-        <p
-          style={{
-            margin: "0 0 10px",
-            fontSize: 10,
-            letterSpacing: "0.18em",
-            textTransform: "uppercase",
-            color: "#aaa",
-          }}
-        >
-          Die Type
-        </p>
-        <div style={{ display: "flex", gap: 8 }}>
-          {DICE.map(({ sides, label }) => (
-            <button
-              key={sides}
-              onClick={() => setDieType(sides)}
-              style={{
-                flex: 1,
-                padding: "8px 0",
-                border: "none",
-                cursor: "pointer",
-                borderRadius: 6,
-                fontSize: 12,
-                fontFamily: "inherit",
-                fontWeight: dieType === sides ? 500 : 400,
-                background: dieType === sides ? "#1a1a1a" : "#ece9e4",
-                color: dieType === sides ? "#f7f5f2" : "#666",
-                transition: "all 0.15s",
-                letterSpacing: "0.04em",
-              }}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Controls */}
-      <div
-        style={{
-          padding: "20px 28px",
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap: 16,
-        }}
-      >
-        <Control
-          label="Dice"
-          value={diceCount}
-          min={1}
-          max={20}
-          onChange={(d) => {
-            const next = Math.min(20, Math.max(1, diceCount + d));
-            setDiceCount(next);
-            if (threshold > next) setThreshold(next);
-          }}
-        />
-        <Control
-          label={`Target ${modeSymbol}`}
-          value={threshold}
-          min={0}
-          max={diceCount}
-          onChange={(d) =>
-            setThreshold((t) => Math.min(diceCount, Math.max(0, t + d)))
-          }
-        />
-      </div>
-
-      {/* Mode toggle + Result */}
-      <div style={{ padding: "0 28px 24px" }}>
-        {/* GTE / LTE toggle */}
-        <div
-          style={{
-            display: "flex",
-            marginBottom: 10,
-            border: "1px solid #e0dcd6",
-            borderRadius: 8,
-            overflow: "hidden",
-          }}
-        >
-          {[
-            { val: "gte", label: "≥ At Least" },
-            { val: "lte", label: "≤ At Most" },
-          ].map(({ val, label }) => (
-            <button
-              key={val}
-              onClick={() => setMode(val)}
-              style={{
-                flex: 1,
-                padding: "9px 0",
-                border: "none",
-                cursor: "pointer",
-                fontFamily: "inherit",
-                fontSize: 12,
-                letterSpacing: "0.08em",
-                transition: "all 0.15s",
-                background: mode === val ? "#1a1a1a" : "transparent",
-                color: mode === val ? "#f7f5f2" : "#aaa",
-                fontWeight: mode === val ? 500 : 400,
-              }}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-
-        {/* Result card with progress bar as background */}
-        <div
-          style={{
-            borderRadius: 12,
-            padding: "28px 24px",
-            display: "flex",
-            alignItems: "flex-end",
-            justifyContent: "space-between",
-            position: "relative",
-            overflow: "hidden",
-            background: "#1a1a1a",
-            minHeight: 100,
-          }}
-        >
-          {/* Animated fill */}
-          <div
-            style={{
-              position: "absolute",
-              inset: 0,
-              width: `${result * 100}%`,
-              background: "#2e2e2e",
-              transition: "width 0.5s cubic-bezier(0.4,0,0.2,1)",
-              borderRadius: 0,
-            }}
-          />
-          {/* Subtle divider line at fill edge */}
-          <div
-            style={{
-              position: "absolute",
-              top: 0,
-              bottom: 0,
-              left: `${result * 100}%`,
-              width: result > 0 && result < 1 ? 1 : 0,
-              background: "#3e3e3e",
-              transition: "left 0.5s cubic-bezier(0.4,0,0.2,1)",
-            }}
-          />
-
-          {/* Content */}
-          <div style={{ position: "relative", zIndex: 1 }}>
-            <p
-              style={{
-                margin: "0 0 4px",
-                fontSize: 11,
-                color: "#666",
-                letterSpacing: "0.15em",
-                textTransform: "uppercase",
-              }}
-            >
-              P({modeSymbol}
-              {threshold} on {diceCount}
-              {dieName})
-            </p>
-            <p
-              style={{
-                margin: 0,
-                fontFamily: "'Fraunces', serif",
-                fontSize: 52,
-                fontWeight: 600,
-                color: "#f7f5f2",
-                letterSpacing: "-0.03em",
-                lineHeight: 1,
-              }}
-            >
-              {fmt(result)}
-            </p>
-          </div>
-          <div style={{ textAlign: "right", position: "relative", zIndex: 1 }}>
-            <p
-              style={{
-                margin: "0 0 2px",
-                fontSize: 10,
-                color: "#555",
-                letterSpacing: "0.12em",
-                textTransform: "uppercase",
-              }}
-            >
-              1 in
-            </p>
-            <p
-              style={{
-                margin: 0,
-                fontSize: 22,
-                color: "#f7f5f2",
-                fontFamily: "'Fraunces', serif",
-                fontWeight: 300,
-              }}
-            >
-              {result > 0 ? (1 / result).toFixed(1) : "∞"}
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Tabs */}
-      <div
-        style={{
-          padding: "0 28px 12px",
-          display: "flex",
-          gap: 0,
-          borderBottom: "1px solid #e0dcd6",
-        }}
-      >
-        {["distribution", "sweep"].map((v) => (
-          <button
-            key={v}
-            onClick={() => setView(v)}
-            style={{
-              padding: "6px 16px 8px",
-              border: "none",
-              cursor: "pointer",
-              background: "transparent",
-              fontFamily: "inherit",
-              fontSize: 11,
-              letterSpacing: "0.15em",
-              textTransform: "uppercase",
-              color: view === v ? "#1a1a1a" : "#bbb",
-              fontWeight: view === v ? 500 : 400,
-              borderBottom:
-                view === v ? "2px solid #1a1a1a" : "2px solid transparent",
-              transition: "all 0.15s",
-            }}
-          >
-            {v === "distribution" ? "Distribution" : "Sweep"}
-          </button>
-        ))}
-      </div>
-
-      {/* Chart area */}
-      <div style={{ padding: "16px 28px 32px", flex: 1 }}>
-        {view === "distribution" ? (
-          <>
-            <p
-              style={{
-                margin: "0 0 12px",
-                fontSize: 10,
-                color: "#bbb",
-                letterSpacing: "0.15em",
-                textTransform: "uppercase",
-              }}
-            >
-              Exact probability per outcome
-            </p>
-            <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-              {distribution.map(({ k, prob }) => {
-                const highlighted =
-                  mode === "gte" ? k >= threshold : k <= threshold;
-                const w = maxProb > 0 ? (prob / maxProb) * 100 : 0;
-                return (
-                  <div
-                    key={k}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 10,
-                      opacity: prob < 0.001 ? 0.3 : 1,
-                    }}
-                  >
-                    <span
-                      style={{
-                        width: 24,
-                        fontSize: 11,
-                        textAlign: "right",
-                        color: highlighted ? "#1a1a1a" : "#ccc",
-                        fontWeight: highlighted ? 500 : 400,
-                      }}
-                    >
-                      {k}
-                    </span>
-                    <div
-                      style={{
-                        flex: 1,
-                        height: 18,
-                        background: "#ece9e4",
-                        borderRadius: 3,
-                        overflow: "hidden",
-                      }}
-                    >
-                      <div
-                        style={{
-                          height: "100%",
-                          borderRadius: 3,
-                          width: `${w}%`,
-                          transition: "width 0.3s ease",
-                          background: highlighted ? "#1a1a1a" : "#d4d0cb",
-                        }}
-                      />
-                    </div>
-                    <span
-                      style={{
-                        width: 42,
-                        fontSize: 11,
-                        textAlign: "right",
-                        color: highlighted ? "#1a1a1a" : "#bbb",
-                      }}
-                    >
-                      {fmt(prob)}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          </>
-        ) : (
-          <>
-            <p
-              style={{
-                margin: "0 0 12px",
-                fontSize: 10,
-                color: "#bbb",
-                letterSpacing: "0.15em",
-                textTransform: "uppercase",
-              }}
-            >
-              P({modeSymbol}
-              {threshold}) across pool sizes
-            </p>
-            <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-              {sweep.map(({ n, p: sp }) => {
-                const isActive = n === diceCount;
-                return (
-                  <div
-                    key={n}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 10,
-                      cursor: "pointer",
-                    }}
-                    onClick={() => setDiceCount(n)}
-                  >
-                    <span
-                      style={{
-                        width: 32,
-                        fontSize: 11,
-                        textAlign: "right",
-                        color: isActive ? "#1a1a1a" : "#ccc",
-                        fontWeight: isActive ? 500 : 400,
-                      }}
-                    >
-                      {n}d
-                    </span>
-                    <div
-                      style={{
-                        flex: 1,
-                        height: 18,
-                        background: "#ece9e4",
-                        borderRadius: 3,
-                        overflow: "hidden",
-                      }}
-                    >
-                      <div
-                        style={{
-                          height: "100%",
-                          borderRadius: 3,
-                          width: `${sp * 100}%`,
-                          transition: "width 0.3s ease",
-                          background: isActive ? "#1a1a1a" : "#c8c4be",
-                        }}
-                      />
-                    </div>
-                    <span
-                      style={{
-                        width: 42,
-                        fontSize: 11,
-                        textAlign: "right",
-                        color: isActive ? "#1a1a1a" : "#bbb",
-                      }}
-                    >
-                      {sp > 0 ? fmt(sp) : "—"}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function Control({ label, value, min, max, onChange }) {
-  return (
-    <div
-      style={{ background: "#ece9e4", borderRadius: 10, padding: "14px 16px" }}
-    >
-      <p
-        style={{
-          margin: "0 0 8px",
-          fontSize: 10,
-          letterSpacing: "0.16em",
-          textTransform: "uppercase",
-          color: "#999",
-        }}
-      >
-        {label}
-      </p>
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-        }}
-      >
-        <button
-          onClick={() => onChange(-1)}
-          disabled={value <= min}
-          style={{
-            width: 32,
-            height: 32,
-            borderRadius: "50%",
-            border: "1px solid #d4d0cb",
-            background: "#f7f5f2",
-            color: "#1a1a1a",
-            fontSize: 18,
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            opacity: value <= min ? 0.3 : 1,
-            fontFamily: "inherit",
-            lineHeight: 1,
-          }}
-        >
-          −
-        </button>
-        <span
-          style={{
-            fontFamily: "'Fraunces', serif",
-            fontSize: 32,
-            fontWeight: 300,
-            color: "#1a1a1a",
-            letterSpacing: "-0.02em",
-          }}
-        >
-          {value}
-        </span>
-        <button
-          onClick={() => onChange(1)}
-          disabled={value >= max}
-          style={{
-            width: 32,
-            height: 32,
-            borderRadius: "50%",
-            border: "1px solid #d4d0cb",
-            background: "#f7f5f2",
-            color: "#1a1a1a",
-            fontSize: 18,
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            opacity: value >= max ? 0.3 : 1,
-            fontFamily: "inherit",
-            lineHeight: 1,
-          }}
-        >
-          +
-        </button>
-      </div>
-    </div>
-  );
-}
